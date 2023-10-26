@@ -71,4 +71,4 @@ struct pschedinfo {
 ```
 
 ### `Makefile` changes
-In order for the tests to work, two changes were made to the xv6 `Makefile`. `CPUS := 1`, as we are only considering scheduling on a single core. I also disabled compiler optimizations by changing the `CFLAGS` from `-O2` to `-O0`. Some of the tests use spin loops, which may be removed by the compiler if optimizations are turned on.
+In order to test the changes, two changes were made to the xv6 `Makefile`. `CPUS := 1`, as we are only considering scheduling on a single core. I also disabled compiler optimizations by changing the `CFLAGS` from `-O2` to `-O0`. Some of the tests use spin loops, which may be removed by the compiler if optimizations are turned on.
