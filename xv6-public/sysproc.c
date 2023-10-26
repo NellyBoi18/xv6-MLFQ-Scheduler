@@ -9,6 +9,7 @@
 #include "psched.h"
 #include "spinlock.h"
 
+// Needed for sys_sleep() ptable lock
 extern struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -73,17 +74,6 @@ sys_sleep(void)
   if(argint(0, &n) < 0)
     return -1;
   acquire(&ptable.lock);
-  /*
-  ticks0 = ticks;
-  while(ticks - ticks0 < n){
-    if(myproc()->killed){
-      release(&tickslock);
-      return -1;
-    }
-    sleep(&ticks, &tickslock);
-  }
-  */
-  
   
   endticks = ticks + n;
   myproc()->endticks = endticks;
@@ -95,15 +85,6 @@ sys_sleep(void)
     }
     sleep(&ticks, &ptable.lock);  // Sleep until the entire duration has passed
   }
-  
-
-  // acquire(&ptable.lock);
-  /*
-  myproc()->cpu = n;
-  myproc()->state = SLEEPING;
-  sched();
-  */
-  // release(&ptable.lock);
 
   release(&ptable.lock);
   return 0;
@@ -123,11 +104,15 @@ sys_uptime(void)
 }
 
 // Lowers priority of a process
+// Allows a process to voluntarily decrease its priority
 int sys_nice(void) {
     int n;
+
+    // Get the argument from the stack, return -1 if no arg
     if (argint(0, &n) < 0)
         return -1;
 
+    // Check if the argument is valid
     if (n < 0 || n > 20)
         return -1;
 
@@ -138,41 +123,29 @@ int sys_nice(void) {
     return prev_nice;
 }
 
-// Returns the current priority of a process
-/*
-int sys_getschedstate(void) {
-    struct pschedinfo *pinfo;
-    if (argptr(0, (void *)&pinfo, sizeof(*pinfo)) < 0)
-        return -1;
-
-    for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-        pinfo->inuse[p - ptable.proc] = p->state != UNUSED;
-        pinfo->priority[p - ptable.proc] = p->priority;
-        pinfo->nice[p - ptable.proc] = p->nice;
-        pinfo->pid[p - ptable.proc] = p->pid;
-        pinfo->ticks[p - ptable.proc] = p->cpu;
-    }
-
-    return 0;
-}
-*/
-
+// Returns relevant scheduler-related information about all running processes, 
+// including how many times each process has been chosen to run (ticks) 
+// and the process ID of each process.
 int sys_getschedstate(void)
 {
-  struct pschedinfo *psi;
+  struct pschedinfo *currSched;
 
-  if(argptr(0, (void*)&psi, sizeof(*psi)) < 0 || !psi)
+  // Get the argument from the stack, return -1 if no arg
+  if(argptr(0, (void*)&currSched, sizeof(*currSched)) < 0 || !currSched)
     return -1;
 
   acquire(&ptable.lock);
+
+  // Loop through all processes and populate the pschedinfo struct
   for(int i = 0; i < NPROC; i++) {
     struct proc *p = &ptable.proc[i];
-    psi->inuse[i] = (p->state != UNUSED);
-    psi->priority[i] = p->priority;
-    psi->nice[i] = p->nice;
-    psi->pid[i] = p->pid;
-    psi->ticks[i] = p->cpu;  // Assuming the 'cpu' field in proc struct represents ticks. Adjust if needed.
+    currSched->inuse[i] = (p->state != UNUSED);
+    currSched->priority[i] = p->priority;
+    currSched->nice[i] = p->nice;
+    currSched->pid[i] = p->pid;
+    currSched->ticks[i] = p->cpu;
   }
+  
   release(&ptable.lock);
 
   return 0;

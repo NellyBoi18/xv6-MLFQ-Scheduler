@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
+// Needed for scheduler() ptable lock
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -332,7 +333,6 @@ scheduler(void)
 
   int highest_priority;
   struct proc *highest_priority_proc;
-  // struct proc *last_runnable_proc;
   
   for(;;){
     // Enable interrupts on this processor.
@@ -344,6 +344,7 @@ scheduler(void)
       acquire(&ptable.lock);
       for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
         if(p->state != UNUSED) {
+          // Decay priority
           p->cpu /= 2;
           p->priority = p->cpu / 2 + p->nice;
         }
@@ -355,7 +356,6 @@ scheduler(void)
     acquire(&ptable.lock);
     highest_priority = 100000;  // Initialize with a high value
     highest_priority_proc = 0;
-    // int started = 0;
     
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
       if(p->state == RUNNABLE && p->priority < highest_priority) {
@@ -363,22 +363,8 @@ scheduler(void)
         highest_priority_proc = p;
       }
     }
-    /*
-    for(p = (last_runnable_proc ? last_runnable_proc + 1 : ptable.proc); 
-        p < &ptable.proc[NPROC] || !started; 
-        p++, started = 1) {
-      if(p == &ptable.proc[NPROC]) {
-        // Wrap around
-        p = ptable.proc;
-      }
-      if(p->state == RUNNABLE && p->priority < highest_priority) {
-        highest_priority = p->priority;
-        highest_priority_proc = p;
-      }
-    }
-    last_runnable_proc = highest_priority_proc;
-    */
 
+    // If a process with priority 0 is found, run it
     if(highest_priority_proc) {
       p = highest_priority_proc;
       // Switch to chosen process.  It is the process's job
@@ -527,18 +513,9 @@ sleep(void *chan, struct spinlock *lk)
     release(lk);
   }
 
-
-  /*
-  if(p->n_sleep_ticks <= 0) {
-    release(lk);
-    return;
-  }
-  */
-
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
-  // release(lk);
 
   sched();
 

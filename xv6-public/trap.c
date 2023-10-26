@@ -53,12 +53,12 @@ trap(struct trapframe *tf)
 
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER: // timer interrupt
-    
     if(cpuid() == 0){
       acquire(&tickslock);
       ticks++;
       wakeup(&ticks);
 
+      // Loop through all processes and wake up any sleeping processes that have slept for the specified number of ticks
       struct proc *p;
       for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
         if (p->state == SLEEPING && ticks >= p->endticks) {
@@ -68,7 +68,7 @@ trap(struct trapframe *tf)
 
       release(&tickslock);
     }
-    lapiceoi(); // inform the PIC that the interrupt has been handled
+    lapiceoi();
     break;
   case T_IRQ0 + IRQ_IDE:
     ideintr();
